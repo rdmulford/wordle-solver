@@ -1,6 +1,6 @@
 extern crate reqwest;
 
-use clap::Parser;
+use clap::{AppSettings, Args, Parser, Subcommand};
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 use std::path::Path;
@@ -14,16 +14,40 @@ struct Hint {
     kind: char,
 }
 
-#[derive(Parser, Debug)]
-#[clap(about, version, author)]
-struct Args {
-    /// word to solve for
-    #[clap(short, long)]
-    target: String,
-
+/// Doc comment
+#[derive(Args)]
+#[clap(name = "wordle")]
+#[clap(about = "wordle solver")]
+struct Struct {
     /// number of words to source
     #[clap(short, long, default_value_t = 10000)]
     count: u64,
+}
+
+#[derive(Parser)]
+#[clap(name = "wordle")]
+#[clap(about = "wordle solver")]
+struct Cli {
+    #[clap(subcommand)]
+    command: Commands,
+
+    #[clap(flatten)]
+    delegate: Struct,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// try and solve the target word in fewest number of turns
+    #[clap(setting(AppSettings::ArgRequiredElseHelp))]
+    Solve {
+        /// target word to solve for
+        #[clap()]
+        target: String,
+    },
+
+    /// interactively play wordle
+    #[clap()]
+    Play {},
 }
 
 #[tokio::main]
@@ -40,11 +64,11 @@ async fn main() {
         }
     }
 
-    let args = Args::parse();
+    let args = Cli::parse();
 
-    println!("parsing words c={:?}", args.count);
+    println!("parsing words c={:?}", args.delegate.count);
     let mut words: Vec<String> = Vec::new();
-    let res = parse_words(&mut words, args.count);
+    let res = parse_words(&mut words, args.delegate.count);
     match res {
         Ok(v) => println!("done: {:?}", v),
         Err(e) => {
@@ -53,8 +77,20 @@ async fn main() {
         }
     }
 
-    println!("playing wordle:");
-    play(words, args.target);
+    match &args.command {
+        Commands::Solve { target } => {
+            if target.len() != 5 {
+                println!("target must be 5 characters in length");
+                return;
+            }
+            println!("attempting to solve with target {:?}", target);
+            solve(words, target.to_string());
+        }
+        Commands::Play {} => {
+            println!("playing wordle");
+            play(words)
+        }
+    }
 }
 
 /// downloads a list of words ordered by how frequently they are used
@@ -96,8 +132,8 @@ fn parse_words(words: &mut Vec<String>, count: u64) -> io::Result<()> {
     Ok(())
 }
 
-/// plays wordle until it finds the word or gives up
-fn play(words: Vec<String>, target: String) {
+/// solves a wordle until it finds the word or gives up
+fn solve(words: Vec<String>, target: String) {
     let mut turn = 0u32;
     let mut possible_words = words.clone();
     loop {
@@ -113,6 +149,48 @@ fn play(words: Vec<String>, target: String) {
         if turn > 6 {
             println!("could not find word after 6 turns");
             return;
+        }
+        possible_words = narrow_guesses(possible_words, hints);
+        println!("possible words: {:?}", possible_words.len());
+        if possible_words.len() <= 0 {
+            println!("word not found, try sourcing more words with --count arg (see --help)");
+            return;
+        }
+    }
+}
+
+/// interactively plays wordle with the user
+fn play(words: Vec<String>) {
+    let mut turn = 0u32;
+    let mut possible_words = words.clone();
+    println!("enter hints as string where green='g', yellow='y', and black='b' (example: ggybb)");
+    loop {
+        turn += 1;
+        println!("turn: {:?}", turn);
+        let guess = possible_words.get(0).unwrap().to_string();
+        println!("try: {:?}", guess);
+        let mut hint = String::new();
+        println!("enter hint string:");
+        std::io::stdin().read_line(&mut hint).unwrap();
+        hint.pop();
+        if hint.len() != 5 {
+            println!("invalid hint string");
+            turn -= 1;
+            continue;
+        }
+        if hint == "ggggg" {
+            println!("we did it!");
+            break;
+        }
+        let mut hints: Vec<Hint> = Vec::new();
+        let mut pos = 0;
+        for h in hint.chars() {
+            hints.push(Hint {
+                kind: h,
+                position: pos,
+                letter: guess.chars().nth(pos).unwrap(),
+            });
+            pos += 1;
         }
         possible_words = narrow_guesses(possible_words, hints);
         println!("possible words: {:?}", possible_words.len());
