@@ -7,6 +7,7 @@ use std::path::Path;
 
 const FILENAME: &str = "./words.txt";
 
+/// stores hint information
 #[derive(Debug)]
 struct Hint {
     letter: char,
@@ -14,7 +15,8 @@ struct Hint {
     kind: char,
 }
 
-/// Doc comment
+/// global args
+/// TODO make non positional
 #[derive(Args)]
 #[clap(name = "wordle")]
 #[clap(about = "wordle solver")]
@@ -24,6 +26,7 @@ struct Struct {
     count: u64,
 }
 
+/// CLI struct
 #[derive(Parser)]
 #[clap(name = "wordle")]
 #[clap(about = "wordle solver")]
@@ -35,6 +38,7 @@ struct Cli {
     delegate: Struct,
 }
 
+/// CLI sub commands
 #[derive(Subcommand)]
 enum Commands {
     /// try and solve the target word in fewest number of turns
@@ -146,7 +150,7 @@ fn solve(words: Vec<String>, target: String) {
             println!("word: {:?}, turn: {:?}", most_popular, turn);
             return;
         }
-        if turn > 6 {
+        if turn >= 6 {
             println!("could not find word after 6 turns");
             return;
         }
