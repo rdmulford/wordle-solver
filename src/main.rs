@@ -1,5 +1,6 @@
 extern crate reqwest;
 
+use clap::Parser;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 use std::path::Path;
@@ -11,6 +12,18 @@ struct Hint {
     letter: char,
     position: usize,
     kind: char,
+}
+
+#[derive(Parser, Debug)]
+#[clap(about, version, author)]
+struct Args {
+    /// word to solve for
+    #[clap(short, long)]
+    target: String,
+
+    /// number of words to source
+    #[clap(short, long, default_value_t = 10000)]
+    count: u64,
 }
 
 #[tokio::main]
@@ -27,9 +40,11 @@ async fn main() {
         }
     }
 
-    println!("parsing words");
+    let args = Args::parse();
+
+    println!("parsing words c={:?}", args.count);
     let mut words: Vec<String> = Vec::new();
-    let res = parse_words(&mut words);
+    let res = parse_words(&mut words, args.count);
     match res {
         Ok(v) => println!("done: {:?}", v),
         Err(e) => {
@@ -39,7 +54,7 @@ async fn main() {
     }
 
     println!("playing wordle:");
-    play(words, "sulle".to_string());
+    play(words, args.target);
 }
 
 /// downloads a list of words ordered by how frequently they are used
@@ -54,11 +69,11 @@ async fn download_words() -> io::Result<()> {
 }
 
 /// reads a word file and parses it into a vector
-fn parse_words(words: &mut Vec<String>) -> io::Result<()> {
+fn parse_words(words: &mut Vec<String>, count: u64) -> io::Result<()> {
     let file = File::open(FILENAME)?;
     let reader = BufReader::new(file);
 
-    let mut c = 10000; // number of top words to grab for initial guess
+    let mut c = count; // number of top words to grab for initial guess
     for line in reader.lines() {
         match line {
             Ok(l) => {
@@ -93,14 +108,18 @@ fn play(words: Vec<String>, target: String) {
         let hints = get_hints(&most_popular, &target);
         if is_winner(&hints) {
             println!("word: {:?}, turn: {:?}", most_popular, turn);
-            return
+            return;
         }
         if turn > 6 {
             println!("could not find word after 6 turns");
-            return
+            return;
         }
         possible_words = narrow_guesses(possible_words, hints);
         println!("possible words: {:?}", possible_words.len());
+        if possible_words.len() <= 0 {
+            println!("word not found, try sourcing more words with --count arg (see --help)");
+            return;
+        }
     }
 }
 
@@ -114,7 +133,10 @@ fn narrow_guesses(words: Vec<String>, hints: Vec<Hint>) -> Vec<String> {
                 is_valid = false;
                 break;
             }
-            if hint.kind == 'y' && (word.chars().nth(hint.position).unwrap() == hint.letter || !word.contains(hint.letter)) {
+            if hint.kind == 'y'
+                && (word.chars().nth(hint.position).unwrap() == hint.letter
+                    || !word.contains(hint.letter))
+            {
                 is_valid = false;
                 break;
             }
@@ -125,9 +147,9 @@ fn narrow_guesses(words: Vec<String>, hints: Vec<Hint>) -> Vec<String> {
         }
         if is_valid {
             guesses.push(word)
-        } 
+        }
     }
-    return guesses
+    return guesses;
 }
 
 /// gets a list of hints for the provided guess against the target word
@@ -156,14 +178,14 @@ fn get_hints(guess: &String, target: &String) -> Vec<Hint> {
         });
         pos = pos + 1;
     }
-    return hints
+    return hints;
 }
 
 /// determines if all hints are green
 fn is_winner(hints: &Vec<Hint>) -> bool {
     for hint in hints {
         if hint.kind != 'g' {
-            return false
+            return false;
         }
     }
     return true;
