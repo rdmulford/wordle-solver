@@ -92,7 +92,7 @@ async fn main() {
             let start = Instant::now();
             solve(words, target.to_string());
             let end = start.elapsed();
-            println!("took {:.2?} seconds", end);
+            println!("took {:.2?}", end);
         }
         Commands::Play {} => {
             println!("playing wordle");
