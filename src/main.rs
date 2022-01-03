@@ -143,24 +143,23 @@ fn parse_words(words: &mut Vec<String>, count: u64) -> io::Result<()> {
 /// solves a wordle until it finds the word or gives up
 fn solve(words: Vec<String>, target: String) {
     let mut turn = 0u32;
-    let mut possible_words = words.clone();
+    let possible_words = words.clone();
+    let mut next_guess = possible_words.get(0).unwrap().to_string();
     loop {
         turn += 1;
         println!("turn: {:?}", turn);
-        let most_popular = possible_words.get(0).unwrap().to_string();
-        println!("guess: {:?}", most_popular);
-        let hints = get_hints(&most_popular, &target);
+        println!("guess: {:?}", next_guess);
+        let hints = get_hints(&next_guess, &target);
         if is_winner(&hints) {
-            println!("word: {:?}, turn: {:?}", most_popular, turn);
+            println!("word: {:?}, turn: {:?}", next_guess, turn);
             return;
         }
         if turn >= 6 {
             println!("could not find word after 6 turns");
             return;
         }
-        possible_words = narrow_guesses(possible_words, hints);
-        println!("possible words: {:?}", possible_words.len());
-        if possible_words.len() <= 0 {
+        next_guess = narrow_guesses(&possible_words, hints);
+        if next_guess == "invalid" {
             println!("word not found, try sourcing more words with --count arg (see --help)");
             return;
         }
@@ -170,13 +169,13 @@ fn solve(words: Vec<String>, target: String) {
 /// interactively plays wordle with the user
 fn play(words: Vec<String>) {
     let mut turn = 0u32;
-    let mut possible_words = words.clone();
+    let possible_words = words.clone();
+    let mut next_guess = possible_words.get(0).unwrap().to_string();
     println!("enter hints as string where green='g', yellow='y', and black='b' (example: ggybb)");
     loop {
         turn += 1;
         println!("turn: {:?}", turn);
-        let guess = possible_words.get(0).unwrap().to_string();
-        println!("try: {:?}", guess);
+        println!("try: {:?}", next_guess);
         let mut hint = String::new();
         println!("enter hint string:");
         std::io::stdin().read_line(&mut hint).unwrap();
@@ -196,13 +195,12 @@ fn play(words: Vec<String>) {
             hints.push(Hint {
                 kind: h,
                 position: pos,
-                letter: guess.chars().nth(pos).unwrap(),
+                letter: next_guess.chars().nth(pos).unwrap(),
             });
             pos += 1;
         }
-        possible_words = narrow_guesses(possible_words, hints);
-        println!("possible words: {:?}", possible_words.len());
-        if possible_words.len() <= 0 {
+        next_guess = narrow_guesses(&possible_words, hints);
+        if next_guess == "invalid" {
             println!("word not found, try sourcing more words with --count arg (see --help)");
             return;
         }
@@ -210,8 +208,7 @@ fn play(words: Vec<String>) {
 }
 
 /// narrows down potential guesses based on provided hints
-fn narrow_guesses(words: Vec<String>, hints: Vec<Hint>) -> Vec<String> {
-    let mut guesses: Vec<String> = Vec::new();
+fn narrow_guesses(words: &Vec<String>, hints: Vec<Hint>) -> String {
     for word in words {
         let mut is_valid = true;
         for hint in &hints {
@@ -232,10 +229,10 @@ fn narrow_guesses(words: Vec<String>, hints: Vec<Hint>) -> Vec<String> {
             }
         }
         if is_valid {
-            guesses.push(word)
+            return word.to_string();
         }
     }
-    return guesses;
+    return "invalid".to_string();
 }
 
 /// gets a list of hints for the provided guess against the target word
