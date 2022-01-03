@@ -4,6 +4,7 @@ use clap::{AppSettings, Args, Parser, Subcommand};
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 use std::path::Path;
+use std::time::Instant;
 
 const FILENAME: &str = "./words.txt";
 
@@ -88,7 +89,10 @@ async fn main() {
                 return;
             }
             println!("attempting to solve with target {:?}", target);
+            let start = Instant::now();
             solve(words, target.to_string());
+            let end = start.elapsed();
+            println!("took {:.2?} seconds", end);
         }
         Commands::Play {} => {
             println!("playing wordle");
