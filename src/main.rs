@@ -111,7 +111,7 @@ async fn main() {
 
 /// downloads a list of words ordered by how frequently they are used
 async fn download_words() -> io::Result<()> {
-    let resp = reqwest::get("https://norvig.com/ngrams/count_1w.txt")
+    let resp = reqwest::get("https://norvig.com/ngrams/sgb-words.txt")
         .await
         .expect("request failed");
     let body = resp.text().await.expect("body invalid");
@@ -129,13 +129,12 @@ fn parse_words(words: &mut Vec<String>, count: u64) -> io::Result<()> {
     for line in reader.lines() {
         match line {
             Ok(l) => {
-                let mut split: Vec<&str> = l.split('\t').collect();
-                split.pop(); // remove freq we dont need
-                let word = split.pop().unwrap(); // get actual word
-                if word.chars().count() != 5 {
-                    continue;
-                }
-                words.push(word.to_string());
+                // let mut split: Vec<&str> = l.split('\t').collect();
+                // split.pop(); // remove freq we dont need
+                // if word.chars().count() != 5 {
+                //     continue;
+                // }
+                words.push(l);
                 c = c - 1;
                 if c <= 0 {
                     break;
