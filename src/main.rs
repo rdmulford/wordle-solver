@@ -104,10 +104,7 @@ async fn main() {
         }
         Commands::Benchmark {} => {
             println!("benchmarking");
-            let start = Instant::now();
             benchmark(words);
-            let end = start.elapsed();
-            println!("took {:.2?}", end);
         }
     }
 }
@@ -237,6 +234,7 @@ fn benchmark(words: Vec<String>) {
     let possible_words = words.clone();
     let mut average_turn_sum = 0;
     let mut unsolved = 0;
+    let start = Instant::now();
     for word in possible_words {
         let turn = solve(words.clone(), word, true);
         if turn == 7 {
@@ -245,9 +243,13 @@ fn benchmark(words: Vec<String>) {
         }
         average_turn_sum += turn
     }
+    let end = start.elapsed();
+
     let average_turn: f32 = average_turn_sum as f32 / (words.len() as f32);
+
     println!("average solve turn: {:?}", average_turn);
     println!("unable to solve: {:?}", unsolved);
+    println!("took {:.2?}", end);
 }
 
 /// narrows down potential guesses based on provided hints
