@@ -53,6 +53,10 @@ enum Commands {
     /// interactively play wordle
     #[clap()]
     Play {},
+
+    /// benchmark system speed
+    #[clap()]
+    Benchmark {},
 }
 
 #[tokio::main]
@@ -90,13 +94,20 @@ async fn main() {
             }
             println!("attempting to solve with target {:?}", target);
             let start = Instant::now();
-            solve(words, target.to_string());
+            solve(words, target.to_string(), false);
             let end = start.elapsed();
             println!("took {:.2?}", end);
         }
         Commands::Play {} => {
             println!("playing wordle");
             play(words)
+        }
+        Commands::Benchmark {} => {
+            println!("benchmarking");
+            let start = Instant::now();
+            benchmark(words);
+            let end = start.elapsed();
+            println!("took {:.2?}", end);
         }
     }
 }
@@ -141,27 +152,35 @@ fn parse_words(words: &mut Vec<String>, count: u64) -> io::Result<()> {
 }
 
 /// solves a wordle until it finds the word or gives up
-fn solve(words: Vec<String>, target: String) {
+fn solve(words: Vec<String>, target: String, quiet: bool) -> u32 {
     let mut turn = 0u32;
     let possible_words = words.clone();
     let mut next_guess = possible_words.get(0).unwrap().to_string();
     loop {
         turn += 1;
-        println!("turn: {:?}", turn);
-        println!("guess: {:?}", next_guess);
+        if !quiet {
+            println!("turn: {:?}", turn);
+            println!("guess: {:?}", next_guess);
+        }
         let hints = get_hints(&next_guess, &target);
         if is_winner(&hints) {
-            println!("word: {:?}, turn: {:?}", next_guess, turn);
-            return;
+            if !quiet {
+                println!("word: {:?}, turn: {:?}", next_guess, turn);
+            }
+            return turn;
         }
         if turn >= 6 {
-            println!("could not find word after 6 turns");
-            return;
+            if !quiet {
+                println!("could not find word after 6 turns");
+            }
+            return 7;
         }
         next_guess = narrow_guesses(&possible_words, hints);
         if next_guess == "invalid" {
-            println!("word not found, try sourcing more words with --count arg (see --help)");
-            return;
+            if !quiet {
+                println!("word not found, try sourcing more words with --count arg (see --help)");
+            }
+            return 7;
         }
     }
 }
@@ -205,6 +224,24 @@ fn play(words: Vec<String>) {
             return;
         }
     }
+}
+
+/// solves all words in set and computes stats
+fn benchmark(words: Vec<String>) {
+    let possible_words = words.clone();
+    let mut average_turn_sum = 0;
+    let mut unsolved = 0;
+    for word in possible_words {
+        let turn = solve(words.clone(), word, true);
+        if turn == 7 {
+            unsolved += 1;
+            continue
+        }
+        average_turn_sum += turn
+    }
+    let average_turn: f32 = average_turn_sum as f32 / (words.len() as f32);
+    println!("average solve turn: {:?}", average_turn);
+    println!("unable to solve: {:?}", unsolved);
 }
 
 /// narrows down potential guesses based on provided hints
